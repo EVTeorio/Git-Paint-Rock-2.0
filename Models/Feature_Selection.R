@@ -33,18 +33,39 @@ samples_clean <- combined_df[!combined_df$TreeID %in% Canopies_noVIs, ]
 vi_data_clean <- samples_clean %>%
   select(all_of(vi_cols)) %>%
   select(where(~ sd(.x, na.rm = TRUE) > 0))
+##############################################################################
+library(ggplot2)
+
+# Convert to data frame and sort by importance
+importance_df_plot <- data.frame(
+  Variable = names(vi_data_clean),
+  Importance = mean_importance
+) %>%
+  arrange(desc(Importance)) %>%
+  slice_head(n = 50)  # keep only top 50
+
+# Plot top 50
+ggplot(importance_df_plot, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Top 50 Variables by Average Importance",
+    x = "Metric",
+    y = "Mean Importance Score"
+  ) +
+  theme_minimal(base_size = 13)
+########################################################################################
 
 # Compute correlation matrix
 vi_corr_matrix <- cor(vi_data_clean, use = "pairwise.complete.obs", method = "pearson")
 
 # Set correlation threshold
 corr_threshold <- 0.7
+importance_threshold <- 1
 
-# Keep only upper triangle
+# Build correlation graph
 corr_matrix_upper <- vi_corr_matrix
 corr_matrix_upper[lower.tri(corr_matrix_upper, diag = TRUE)] <- 0
-
-# Get correlated variable pairs (edges)
 edges <- which(abs(corr_matrix_upper) >= corr_threshold, arr.ind = TRUE)
 edge_list <- data.frame(
   from = rownames(corr_matrix_upper)[edges[, 1]],
@@ -52,22 +73,33 @@ edge_list <- data.frame(
   corr = corr_matrix_upper[edges]
 )
 
-# Build correlation graph and find components
 g <- graph_from_data_frame(edge_list, directed = FALSE)
 components <- components(g)
 groups <- split(names(components$membership), components$membership)
 
-# Also include unconnected (uncorrelated) variables
+# Get all correlated and uncorrelated variables
 all_vars <- colnames(vi_data_clean)
 connected_vars <- unlist(groups)
 unconnected_vars <- setdiff(all_vars, connected_vars)
 
-# Select top variable per group using averaged importance
-select_top_by_importance <- function(vars, importance_scores) {
+# Select top variable in group if its importance ≥ 0.6
+select_top_if_above_threshold <- function(vars, importance_scores, threshold) {
   vars_with_scores <- importance_scores[names(importance_scores) %in% vars]
-  if (length(vars_with_scores) == 0) return(NA)
-  return(names(which.max(vars_with_scores)))
+  vars_above_threshold <- vars_with_scores[vars_with_scores >= threshold]
+  if (length(vars_above_threshold) == 0) return(NA)
+  return(names(which.max(vars_above_threshold)))
 }
 
-selected_vars <- sapply(groups, select_top_by_importance, importance_scores = mean_importance)
-print(selected_vars)
+selected_group_vars <- sapply(groups, select_top_if_above_threshold,
+                              importance_scores = mean_importance,
+                              threshold = importance_threshold)
+
+# Remove NA entries (groups without any variable ≥ threshold)
+selected_group_vars <- selected_group_vars[!is.na(selected_group_vars)]
+selected_metrics <- na.omit(selected_group_vars)
+print(selected_metrics)
+
+
+
+
+

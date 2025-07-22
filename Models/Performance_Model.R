@@ -1,11 +1,9 @@
 
 
-revise for final model
-
 library(tidyverse)
 library(ranger)
 library(caret)
-library()
+library(beepr)
 
 # Load data
 combined_df <- read_csv("E:/DATA/All_CanopyMetrics.csv")
@@ -24,14 +22,19 @@ vi_filtered <- samples_clean %>%
   select(all_of(all_metrics)) %>%
   select(where(~ sd(.x, na.rm = TRUE) > 0))
 
-# Identify VI columns (exclude ID columns)
-metrics <- names(vi_filtered)[!(names(vi_filtered) %in% c("TreeID", "SpeciesID"))]
+# Final metrics
+metrics <- c("Mean_NPCI", "Mean_Height_LeafOn")
 
 # Recombine with ID columns
 canopy_means <- samples_clean %>%
   select(TreeID, SpeciesID) %>%
   bind_cols(vi_filtered)
 
+# Species to keep
+species_counts <- canopy_means %>% count(SpeciesID)
+All_species <- species_counts %>% filter(n > 0) %>% pull(SpeciesID)
+
+# Output lists
 all_results <- list()
 importance_results <- list()
 
@@ -39,89 +42,90 @@ for (i in 1:50) {
   cat("\n--- Object-Based Sample", i, "---\n")
   set.seed(50 + i)
   
-  # Count species and separate into common/rare
-  species_counts <- canopy_means %>% count(SpeciesID)
-  rare_species <- species_counts %>% filter(n < 6) %>% pull(SpeciesID)
-  common_species <- species_counts %>% filter(n >= 6) %>% pull(SpeciesID)
-  
-  # Split common species into train/test
   train_list <- list()
   test_list <- list()
   
-  for (sp in common_species) {
+  for (sp in All_species) {
     sp_data <- canopy_means %>% filter(SpeciesID == sp)
-    sp_train <- sp_data %>% slice_sample(prop = 0.7)
-    sp_test <- anti_join(sp_data, sp_train, by = "TreeID")
+    sp_test <- sp_data %>% slice_sample(prop = 0.25)
+    sp_train <- anti_join(sp_data, sp_test, by = "TreeID")
     train_list[[sp]] <- sp_train
     test_list[[sp]] <- sp_test
   }
   
-  train_common <- bind_rows(train_list)
-  test_common <- bind_rows(test_list)
+  train_canopies <- bind_rows(train_list)
+  test_canopies <- bind_rows(test_list)
   
-  # Handle rare species
-  rare_data <- canopy_means %>% filter(SpeciesID %in% rare_species)
-  rare_train <- rare_data %>%
-    group_by(SpeciesID) %>%
-    slice_sample(n = 1) %>%
-    ungroup() %>%
-    mutate(SpeciesID = "others")
-  
-  rare_test <- anti_join(rare_data, rare_train, by = "TreeID") %>%
-    mutate(SpeciesID = "others")
-  
-  # Final train/test sets
-  train_canopies <- bind_rows(train_common, rare_train)
-  test_canopies <- bind_rows(test_common, rare_test)
-  
-  # Ensure levels match and no NAs
-  train_data <- train_canopies %>%
-    select(SpeciesID, all_of(metrics)) #%>%
-  #drop_na()
-  
-  test_data <- test_canopies %>%
-    select(SpeciesID, all_of(metrics)) #%>%
-  #drop_na()
+  train_data <- train_canopies %>% select(SpeciesID, all_of(metrics))
+  test_data  <- test_canopies %>% select(SpeciesID, all_of(metrics))
   
   train_data$SpeciesID <- factor(train_data$SpeciesID)
   test_data$SpeciesID <- factor(test_data$SpeciesID, levels = levels(train_data$SpeciesID))
   
-  # Train using ranger
-  rf_model <- ranger(
+  # Train model
+  rf_mod <- ranger(
     formula = SpeciesID ~ .,
     data = train_data,
     importance = "impurity",
     num.trees = 3000,
     classification = TRUE,
-    probability = FALSE
+    probability = TRUE
   )
   
-  # Predict
-  preds <- predict(rf_model, data = test_data)$predictions
-  preds_factor <- factor(preds, levels = levels(train_data$SpeciesID))
+  # Prediction (get probabilities)
+  rf_preds <- predict(rf_mod, data = test_data)
+  prob_matrix <- rf_preds$predictions
+  pred_labels <- colnames(prob_matrix)[apply(prob_matrix, 1, which.max)]
+  preds_factor <- factor(pred_labels, levels = levels(train_data$SpeciesID))
   
-  # Confusion matrix
+  # Evaluation
   cm <- confusionMatrix(preds_factor, test_data$SpeciesID)
   
   precision <- cm$byClass[, "Precision"]
   recall <- cm$byClass[, "Recall"]
-  f1_by_class <- 2 * (precision * recall) / (precision + recall)
-  f1_macro <- mean(f1_by_class, na.rm = TRUE)
+  f1_scores <- 2 * (precision * recall) / (precision + recall)
   
-  # Store results
-  all_results[[paste0("Sample_", i)]] <- list(
-    model = rf_model,
-    confusion = cm,
-    accuracy = cm$overall["Accuracy"],
-    f1_by_class = f1_by_class,
-    f1_macro = f1_macro
+  sensitivity <- cm$byClass[, "Sensitivity"]
+  specificity <- cm$byClass[, "Specificity"]
+  balanced_accuracy_scores <- (sensitivity + specificity) / 2
+  
+  macro_f1 <- mean(f1_scores, na.rm = TRUE)
+  macro_balanced_accuracy <- mean(balanced_accuracy_scores, na.rm = TRUE)
+  accuracy <- as.numeric(cm$overall["Accuracy"])
+  kappa_value <- cm$overall["Kappa"]
+  
+  # Confidence scores
+  confidence <- apply(prob_matrix, 1, max)
+  
+  # Results DF
+  results_df <- tibble(
+    TreeID = test_canopies$TreeID,
+    TrueLabel = test_data$SpeciesID,
+    PredictedLabel = preds_factor,
+    Confidence = confidence
   )
   
-  importance_results[[paste0("Sample_", i)]] <- rf_model$variable.importance
+  # Store all
+  all_results[[paste0("Sample_", i)]] <- list(
+    model = rf_mod,
+    accuracy = accuracy,
+    kappa = as.numeric(kappa_value),
+    macro_f1 = macro_f1,
+    macro_balanced_accuracy = macro_balanced_accuracy,
+    f1_per_class = f1_scores,
+    balanced_accuracy_per_class = balanced_accuracy_scores,
+    results = results_df,
+    confidence = confidence,
+    confusion_matrix = cm
+  )
+  
+  importance_results[[paste0("Sample_", i)]] <- rf_mod$variable.importance
 }
 
+# Done sound
 beep()
 
-saveRDS(all_results, "E:/Results/Balanaced_Full_RF_results_all_metrics.rds")
-saveRDS(importance_results, "E:/Results/Balanced_Full_RF_importance_all_metrics.rds")
+# Save
+saveRDS(all_results, "E:/DATA/Perfomance/Performance_Model.rds")
+
 
