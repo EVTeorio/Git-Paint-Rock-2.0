@@ -12,9 +12,17 @@ library(vegan)
 # Load data
 combined_df <- read_csv("E:/DATA/All_CanopyMetrics.csv")
 
+# Load and average importance results across iterations
+importance_list <- readRDS("E:/DATA/Metric_Importance_Selection/Metric_Importance_Values.rds")
+
+# Convert list of named vectors into a data frame and average by variable
+importance_df <- as.data.frame(do.call(rbind, importance_list))
+mean_importance <- colMeans(importance_df, na.rm = TRUE)
+
 # Identify VI columns (exclude ID columns)
 vi_cols <- names(combined_df)[!(names(combined_df) %in% c("TreeID", "SpeciesID"))]
 
+# Filter out known problematic TreeIDs
 Canopies_noVIs <- c("080736","090800","090830","090848","090863",
                     "100987","110563","110602","110618","110752","110819",
                     "110883","110913","120866","140806","150720","80917")
@@ -26,51 +34,40 @@ vi_data_clean <- samples_clean %>%
   select(all_of(vi_cols)) %>%
   select(where(~ sd(.x, na.rm = TRUE) > 0))
 
-# Correlation matrix
+# Compute correlation matrix
 vi_corr_matrix <- cor(vi_data_clean, use = "pairwise.complete.obs", method = "pearson")
 
-# Step 2: Set a correlation threshold
+# Set correlation threshold
 corr_threshold <- 0.7
 
-# Step 3: Convert correlation matrix to a graph where nodes are variables and edges connect strongly correlated ones
-# We only keep the upper triangle of the matrix to avoid duplicate edges
+# Keep only upper triangle
 corr_matrix_upper <- vi_corr_matrix
 corr_matrix_upper[lower.tri(corr_matrix_upper, diag = TRUE)] <- 0
 
-# Find edges with abs(correlation) >= threshold
+# Get correlated variable pairs (edges)
 edges <- which(abs(corr_matrix_upper) >= corr_threshold, arr.ind = TRUE)
-
-# Create an edge list with variable names
 edge_list <- data.frame(
   from = rownames(corr_matrix_upper)[edges[, 1]],
   to   = colnames(corr_matrix_upper)[edges[, 2]],
   corr = corr_matrix_upper[edges]
 )
 
-# Step 4: Build graph and find connected components (groups)
+# Build correlation graph and find components
 g <- graph_from_data_frame(edge_list, directed = FALSE)
 components <- components(g)
+groups <- split(names(components$membership), components$membership)
 
-# Step 5: Report correlated groups
-group_id <- 2
-for (comp in unique(components$membership)) {
-  group_vars <- names(components$membership[components$membership == comp])
-  cat("Group", group_id, ":\n")
-  cat(paste(" -", group_vars), sep = "\n")
-  cat("\n")
-  group_id <- group_id + 1
+# Also include unconnected (uncorrelated) variables
+all_vars <- colnames(vi_data_clean)
+connected_vars <- unlist(groups)
+unconnected_vars <- setdiff(all_vars, connected_vars)
+
+# Select top variable per group using averaged importance
+select_top_by_importance <- function(vars, importance_scores) {
+  vars_with_scores <- importance_scores[names(importance_scores) %in% vars]
+  if (length(vars_with_scores) == 0) return(NA)
+  return(names(which.max(vars_with_scores)))
 }
 
-# Optional: Save report to a file
-# writeLines(capture.output(print(...)), "correlated_metric_report.txt")
-
-# Remove rows with missing VI values
-vi_complete <- vi_data_clean[complete.cases(vi_data_clean), ]
-species_complete <- samples_clean$SpeciesID[complete.cases(vi_data_clean)]
-
-# Run PERMANOVA using adonis2
-adonis_result <- adonis2(vi_complete ~ species_complete, method = "euclidean", permutations = 999)
-beep()
-# View results
-print(adonis_result)
-
+selected_vars <- sapply(groups, select_top_by_importance, importance_scores = mean_importance)
+print(selected_vars)
