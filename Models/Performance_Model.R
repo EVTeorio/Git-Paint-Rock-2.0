@@ -22,8 +22,28 @@ vi_filtered <- samples_clean %>%
   select(all_of(all_metrics)) %>%
   select(where(~ sd(.x, na.rm = TRUE) > 0))
 
-# Final metrics
-metrics <- c("Mean_NPCI", "Mean_Height_LeafOn")
+# # Final metrics (10,5,45)
+# metrics <- c("Mean_NPCI", "Mean_PSRI" , "Mean_mNDVI", "Mean_SIPI",
+#              "Mean_NDVI3", "Mean_Datt5", "Mean_MCARI2OSAVI2", "Mean_MCARI2",
+#              "Mean_Height_LeafOn", "Max_Height_LeafOn", "Entropy_mSR", "Mean_PAD_35_40_on")
+
+# metrics <- c("Mean_PSRI", "Mean_Datt5", "Mean_MCARI2OSAVI2",         
+#             "Mean_Height_LeafOn", "Mean_PAD_35_40_on")
+
+metrics <- c(
+  "Mean_Rumble_LeafOn", "Mean_Rumble_LeafOff", "Mean_Height_LeafOn", "Mean_Intensity_LeafOn",
+  "Mean_Height_LeafOff", "Mean_PAD_40_45_on", "Mean_PAD_25_30_off", "Min_PAD_5_10_off",
+  "Min_PAD_30_35_off", "Mean_PAD_35_40_on", "Entropy_PAD_40_45_off", "Max_PAD_0_5_off",
+  "Mean_PAD_0_5_on", "Max_PAD_10_15_off", "Entropy_PAD_10_15_on", "Max_PAD_15_20_off",
+  "SD_PAD_15_20_on", "SD_PAD_20_25_off", "SD_PAD_5_10_off", "Entropy_PAD_5_10_on",
+  "Mean_PAD_15_20_on", "Mean_PAD_20_25_on", "Mean_NPCI", "Mean_CRI4",
+  "Mean_MCARI", "Mean_PSRI", "Mean_DWSI4", "Max_DPI",
+  "Min_MTCI", "Min_SRPI", "Mean_Vogelmann2", "Mean_CI",
+  "Mean_Carter", "Min_Datt3", "Mean_PSSR", "Mean_REPLE",
+  "Min_mSR705", "Max_EVI", "SD_OSAVI2", "SD_mSR",
+  "Entropy_Datt6", "Entropy_GDVI3", "Entropy_SPVI", "Entropy_SR3",
+  "Entropy_mNDVI"
+)
 
 # Recombine with ID columns
 canopy_means <- samples_clean %>%
@@ -126,6 +146,6 @@ for (i in 1:50) {
 beep()
 
 # Save
-saveRDS(all_results, "E:/DATA/Perfomance/Performance_Model.rds")
-
+saveRDS(all_results, "E:/DATA/Perfomance/Performance_Model_45_Metric.rds")
+saveRDS(importance_results, "E:/DATA/Perfomance/Performance_Model_45_Importance.rds")
 

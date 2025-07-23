@@ -1,4 +1,4 @@
-
+library(party)
 
 library(readr)
 library(dplyr)
@@ -13,7 +13,7 @@ library(vegan)
 combined_df <- read_csv("E:/DATA/All_CanopyMetrics.csv")
 
 # Load and average importance results across iterations
-importance_list <- readRDS("E:/DATA/Metric_Importance_Selection/Metric_Importance_Values.rds")
+importance_list <- readRDS("E:/DATA/Perfomance/Performance_Model_All_Importance.rds")
 
 # Convert list of named vectors into a data frame and average by variable
 importance_df <- as.data.frame(do.call(rbind, importance_list))
@@ -38,7 +38,7 @@ library(ggplot2)
 
 # Convert to data frame and sort by importance
 importance_df_plot <- data.frame(
-  Variable = names(vi_data_clean),
+  Variable = names(importance_df),
   Importance = mean_importance
 ) %>%
   arrange(desc(Importance)) %>%
@@ -49,19 +49,23 @@ ggplot(importance_df_plot, aes(x = reorder(Variable, Importance), y = Importance
   geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(
-    title = "Top 50 Variables by Average Importance",
-    x = "Metric",
+    title = "Top Variables by Average Importance",
+    x = "609 Metrics",
     y = "Mean Importance Score"
   ) +
   theme_minimal(base_size = 13)
+
+
+row.names(importance_df_plot)
+
 ########################################################################################
 
 # Compute correlation matrix
 vi_corr_matrix <- cor(vi_data_clean, use = "pairwise.complete.obs", method = "pearson")
 
 # Set correlation threshold
-corr_threshold <- 0.7
-importance_threshold <- 1
+corr_threshold <- 0.75
+importance_threshold <- 0
 
 # Build correlation graph
 corr_matrix_upper <- vi_corr_matrix
@@ -82,7 +86,7 @@ all_vars <- colnames(vi_data_clean)
 connected_vars <- unlist(groups)
 unconnected_vars <- setdiff(all_vars, connected_vars)
 
-# Select top variable in group if its importance ≥ 0.6
+# Select top variable in group
 select_top_if_above_threshold <- function(vars, importance_scores, threshold) {
   vars_with_scores <- importance_scores[names(importance_scores) %in% vars]
   vars_above_threshold <- vars_with_scores[vars_with_scores >= threshold]
