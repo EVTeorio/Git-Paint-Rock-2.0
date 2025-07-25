@@ -73,11 +73,11 @@ beep()
 # ---- Step 5: Combine and reshape ----
 hsi_pixels_df <- bind_rows(extracted_list) %>%
   separate(Canopies, into = c("TreeID", "SpeciesID"), sep = "_", remove = TRUE)
-
+print(hsi_wide)
 # Long format
 hsi_long <- hsi_pixels_df %>%
   pivot_longer(
-    cols = matches("^\\d+\\.\\d+\\s*nm$"),  # Match spectral band names like "396.345 nm"
+    cols = matches("^\\d+\\.\\d+\\s*nm$"),
     names_to = "Wavelength",
     values_to = "Value"
   ) %>%
@@ -94,7 +94,7 @@ hsi_summary <- hsi_long %>%
     Entropy = compute_entropy(Value),
     .groups = "drop"
   )
-
+beep()
 # Wide format
 hsi_wide <- hsi_summary %>%
   pivot_wider(

@@ -22,13 +22,13 @@ vi_filtered <- samples_clean %>%
   select(all_of(all_metrics)) %>%
   select(where(~ sd(.x, na.rm = TRUE) > 0))
 
-# # Final metrics (10,5,45)
-# metrics <- c("Mean_NPCI", "Mean_PSRI" , "Mean_mNDVI", "Mean_SIPI",
-#              "Mean_NDVI3", "Mean_Datt5", "Mean_MCARI2OSAVI2", "Mean_MCARI2",
-#              "Mean_Height_LeafOn", "Max_Height_LeafOn", "Entropy_mSR", "Mean_PAD_35_40_on")
+# # Final metrics (10,5,45, cforest)
+metrics <- c("Mean_NPCI", "Mean_PSRI" , "Mean_mNDVI", "Mean_SIPI",
+             "Mean_NDVI3", "Mean_Datt5", "Mean_MCARI2OSAVI2", "Mean_MCARI2",
+             "Mean_Height_LeafOn", "Max_Height_LeafOn", "Entropy_mSR", "Mean_PAD_35_40_on")
 
-# metrics <- c("Mean_PSRI", "Mean_Datt5", "Mean_MCARI2OSAVI2",         
-#             "Mean_Height_LeafOn", "Mean_PAD_35_40_on")
+metrics <- c("Mean_PSRI", "Mean_Datt5", "Mean_MCARI2OSAVI2",
+            "Mean_Height_LeafOn", "Mean_PAD_35_40_on")
 
 metrics <- c(
   "Mean_Rumble_LeafOn", "Mean_Rumble_LeafOff", "Mean_Height_LeafOn", "Mean_Intensity_LeafOn",
@@ -45,6 +45,16 @@ metrics <- c(
   "Entropy_mNDVI"
 )
 
+metrics <- c("Mean_NPCI", "Mean_SIPI", "Entropy_mSR",
+  "Entropy_PAD_35_40_on", "SD_PAD_35_40_on", "Mean_Height_LeafOn",
+  "Mean_PSRI", "SD_Carter2", "SD_PAD_30_35_on",
+  "Max_Height_LeafOff", "Max_Carter6", "Mean_PSND",
+  "Min_CRI3", "Entropy_PAD_30_35_on", "Mean_NDVI",
+  "Max_Height_LeafOn", "Mean_GreenNDVI", "Mean_mNDVI",
+  "Mean_PAD_35_40_on", "Max_DD", "Mean_OSAVI",
+  "Max_PAD_30_35_off", "Mean_NDVI3"
+)
+print(metrics)
 # Recombine with ID columns
 canopy_means <- samples_clean %>%
   select(TreeID, SpeciesID) %>%
@@ -146,6 +156,6 @@ for (i in 1:50) {
 beep()
 
 # Save
-saveRDS(all_results, "E:/DATA/Perfomance/Performance_Model_45_Metric.rds")
-saveRDS(importance_results, "E:/DATA/Perfomance/Performance_Model_45_Importance.rds")
+saveRDS(all_results, "E:/DATA/Perfomance/Performance_Model_cforest_Metric.rds")
+saveRDS(importance_results, "E:/DATA/Perfomance/Performance_Model_cforest_Importance.rds")
 

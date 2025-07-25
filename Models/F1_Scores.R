@@ -8,7 +8,7 @@ library(tidyr)
 library(tibble)
 library(ggplot2)
 
-F1_results <- readRDS("E:/DATA/Perfomance/Performance_Model_ALL_Metric.rds")
+F1_results <- readRDS("E:/DATA/Perfomance/Performance_Model_cforest_Metric.rds")
 
 # Initialize a list to hold each iteration's summary
 summary_list <- list()
@@ -68,7 +68,7 @@ summary_df %>%
   ggplot(aes(x = Iteration, y = Value, color = Metric, group = Metric)) +
   geom_line() +
   geom_point() +
-  labs(title = "Model Performance 609 Metrics",
+  labs(title = "Model Performance Metrics",
        x = "Iteration", y = "Score") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -77,7 +77,7 @@ summary_df %>%
 
 ggplot(summary_df, aes(y = F1_Macro)) +
   geom_boxplot(fill = "skyblue") +
-  labs(title = "Distribution of Macro F1 Scores 609 Metrics",
+  labs(title = "Distribution of Macro F1 Scores Metrics",
        y = "Macro F1 Score") +
   theme_minimal()
 
@@ -92,7 +92,7 @@ f1_long <- summary_df %>%
 # Plot boxplot by class
 ggplot(f1_long, aes(x = Class, y = F1_Score)) +
   geom_boxplot(fill = "lightgreen") +
-  labs(title = "Per-Class F1 Score 609 metrics",
+  labs(title = "Per-Class F1 Score  metrics",
        x = "Class", y = "F1 Score") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -105,12 +105,11 @@ ggplot(f1_long, aes(x = Class, y = F1_Score)) +
 # Ensure numeric columns are treated as such
 numeric_cols <- c("Accuracy", "F1_Macro", "F1_ACSA3C", "F1_CACA38", "F1_CAOV2",
                   "F1_FAGR", "F1_FRAMCO", "F1_LIST2", "F1_LITU", "F1_PIEC2",
-                  "F1_QUAL", "F1_QURU", "F1_QUSH", "F1_TIAM", "F1_others")
+                  "F1_QUAL", "F1_QURU", "F1_QUSH", "F1_TIAM")
 summary_df[numeric_cols] <- lapply(summary_df[numeric_cols], as.numeric)
 
 # Summarize mean and standard deviation by Group
 summary_stats <- summary_df %>%
-  group_by(Group) %>%
   summarise(across(all_of(numeric_cols),
                    list(mean = ~mean(. , na.rm = TRUE),
                         sd = ~sd(. , na.rm = TRUE)),
@@ -120,7 +119,7 @@ summary_stats <- summary_df %>%
 print(summary_stats, n = Inf, width = Inf)
 
 
-##############################################################################
+
 # box plot per species/class F1
 # Pivot longer for F1 per class, exclude Macro
 f1_long <- summary_df %>%
@@ -128,7 +127,7 @@ f1_long <- summary_df %>%
                names_to = "Class", values_to = "F1") %>%
   filter(!is.na(F1))
 
-ggplot(f1_long, aes(x = Class, y = F1, fill = Group)) +
+ggplot(f1_long, aes(x = Class, y = F1)) +
   geom_boxplot(outlier.size = 0.5) +
   labs(title = "F1 Score by Class and Group", x = "Class", y = "F1 Score") +
   theme_minimal() +
@@ -144,10 +143,10 @@ f1_long <- summary_df %>%
   filter(!is.na(F1)) %>%
   # Remove "F1_" prefix and filter out unwanted species
   mutate(Class = str_remove(Class, "^F1_")) %>%
-  filter(!Class %in% c("ACSA3C", "FAGR", "QURU", "QUSH", "TIAM"))
+  filter(!Class %in% c("ACSA3C", "QUFA", "QUNI"))
 
 # Plot
-ggplot(f1_long, aes(x = Class, y = F1, fill = Group)) +
+ggplot(f1_long, aes(x = Class, y = F1)) +
   geom_boxplot(outlier.size = 0.5) +
   labs(title = "F1 Score by Class and Group", x = "Class", y = "F1 Score") +
   theme_minimal() +
